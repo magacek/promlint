@@ -1,0 +1,50 @@
+# Clean rules that should pass every check.
+# Used as the negative test corpus: any finding here is a regression.
+groups:
+  - name: web.rules
+    interval: 30s
+    rules:
+      - alert: WebHighErrorRate
+        expr: |
+          sum by (service) (rate(http_requests_errors_total[5m]))
+            /
+          sum by (service) (rate(http_requests_total[5m]))
+            > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate on {{ $labels.service }}"
+          description: "Service {{ $labels.service }} has an error rate > 5% for 10m."
+          runbook_url: "https://runbooks.example.com/web-error-rate"
+
+      - alert: WebLatencyP99High
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p99 latency on {{ $labels.service }} > 1s"
+          description: "Service {{ $labels.service }} p99 latency exceeded 1s for 15m."
+          runbook_url: "https://runbooks.example.com/web-latency"
+
+      # Deploy-failed is a legitimate `for: 0s` case — discrete event.
+      # 5m window keeps short-rate-window happy while still firing quickly
+      # after a failure.
+      - alert: DeployFailed
+        expr: increase(deploy_failures_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deploy failed for {{ $labels.service }}"
+          description: "A deployment failure was recorded in the last minute."
+          runbook_url: "https://runbooks.example.com/deploy-failed"
+
+      # Recording rules are not linted — the checks below don't apply to them.
+      - record: service:http_requests:rate5m
+        expr: sum by (service) (rate(http_requests_total[5m]))

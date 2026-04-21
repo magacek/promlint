@@ -1,0 +1,87 @@
+# Each alert below is designed to trigger exactly one check, named in the
+# comment above. This file doubles as the positive test corpus.
+groups:
+  - name: bad.rules
+    interval: 30s
+    rules:
+
+      # triggers: missing-for
+      - alert: NoForClause
+        expr: up{job="api"} == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "API job is down"
+          description: "{{ $labels.instance }} has been reporting up==0."
+          runbook_url: "https://runbooks.example.com/api-down"
+
+      # triggers: missing-annotations (summary + description missing)
+      - alert: NoAnnotations
+        expr: up{job="worker"} == 0
+        for: 5m
+        labels:
+          severity: warning
+
+      # triggers: missing-severity-label (no severity label at all)
+      - alert: NoSeverityLabel
+        expr: up{job="db"} == 0
+        for: 5m
+        annotations:
+          summary: "DB is down"
+          description: "{{ $labels.instance }} reporting up==0."
+          runbook_url: "https://runbooks.example.com/db-down"
+
+      # triggers: short-rate-window (30s window < 2m minimum)
+      - alert: ShortRateWindow
+        expr: sum by (service) (rate(http_requests_errors_total[30s])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Short-window error rate"
+          description: "Rate is computed over a 30s window."
+          runbook_url: "https://runbooks.example.com/errors"
+
+      # triggers: counter-without-rate
+      - alert: CounterBareCompare
+        expr: http_requests_total > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Counter compared directly"
+          description: "Comparing a cumulative counter to a threshold."
+          runbook_url: "https://runbooks.example.com/counter"
+
+      # triggers: aggregation-drops-identifying-labels
+      - alert: AggregationDropsLabels
+        expr: sum(rate(http_requests_errors_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Errors across the fleet are high"
+          description: "Fleet-wide aggregation; can't tell which service."
+          runbook_url: "https://runbooks.example.com/errors"
+
+      # triggers: duplicate-alert-expression (pair A — with the rule below)
+      - alert: DuplicateExprA
+        expr: avg by (service) (cpu_seconds_usage) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU high (A)"
+          description: "CPU > 80% for 10m."
+          runbook_url: "https://runbooks.example.com/cpu"
+
+      # triggers: duplicate-alert-expression (pair A — same expression as above)
+      - alert: DuplicateExprB
+        expr: avg by (service) (cpu_seconds_usage) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU high (B)"
+          description: "CPU > 80% for 10m."
+          runbook_url: "https://runbooks.example.com/cpu"
